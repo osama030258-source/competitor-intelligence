@@ -1,0 +1,44 @@
+# OPTIONAL: Docker Compose for PostgreSQL + Redis
+# NOTE: As of this version, the application defaults to SQLite and does NOT require Docker
+# This compose file is kept for users who prefer PostgreSQL or want to run Redis for async tasks
+# To run without Docker: simply run `python app.py` in the backend/ directory
+#
+# To use this file:
+#   docker-compose up -d
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: competitor-intel-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: competitor_intel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: competitor-intel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

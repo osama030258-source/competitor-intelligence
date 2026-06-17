@@ -1,0 +1,84 @@
+# OPTIONAL: Production Docker Compose
+# NOTE: As of this version, the application defaults to SQLite and does NOT require Docker
+# This compose file is optional and kept for production deployments that prefer PostgreSQL + Redis
+# For single-server deployment, you can run directly with SQLite as the database
+# 
+# To use this file:
+#   docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: competitor_intel
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      FLASK_ENV: production
+      SECRET_KEY: production-secret-key
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/competitor_intel
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 wsgi:app
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/competitor_intel
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A workers.tasks worker --loglevel=info
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
