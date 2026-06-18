@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { AnalysisLog } from './types';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
   ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api$/, '')
   : 'http://localhost:8000';
